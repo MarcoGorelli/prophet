@@ -16,6 +16,7 @@ from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
+import narwhals as nw
 from numpy.typing import NDArray
 
 from prophet.make_holidays import get_holiday_names, make_holidays_df
@@ -25,6 +26,17 @@ from prophet.plot import (plot, plot_components)
 logger = logging.getLogger('prophet')
 logger.setLevel(logging.INFO)
 NANOSECONDS_TO_SECONDS = 1000 * 1000 * 1000
+
+def _align_and_concat(df1, df2):
+    if df2.is_empty:
+        return df1
+    missing = [x for x in df1.columns if x not in df2.columns]
+    df2 = df2.with_columns(
+        nw.lit(None, dtype=dtype).alias(name)
+        for name, dtype in df1.schema
+        if name in missing
+    )
+    return nw.concat([df1, df2])
 
 class Prophet(object):
     """Prophet forecaster.
@@ -535,7 +547,7 @@ class Prophet(object):
             country_holidays_df = make_holidays_df(
                 year_list=year_list, country=self.country_holidays, native_namespace=native_namespace
             )
-            all_holidays = nw.concat([all_holidays, country_holidays_df])
+            all_holidays = _align_and_concat(all_holidays, country_holidays_df)
             all_holidays = nw.maybe_reset_index(all_holidays)
         # Drop future holidays not previously seen in training data
         if self.train_holiday_names is not None:
@@ -547,7 +559,7 @@ class Prophet(object):
             holidays_to_add = nw.from_dict({
                 'holiday': s.filter(~s.is_in(all_holidays['holiday']))
             }, native_namespace=native_namespace)
-            all_holidays = nw.concat([all_holidays, holidays_to_add])
+            all_holidays = _align_and_concat(all_holidays, holidays_to_add)
             all_holidays = nw.maybe_reset_index(all_holidays)
         return all_holidays.to_native()
 
