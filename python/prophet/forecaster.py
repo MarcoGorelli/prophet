@@ -540,20 +540,13 @@ class Prophet(object):
         # Drop future holidays not previously seen in training data
         if self.train_holiday_names is not None:
             # Remove holiday names didn't show up in fit
-            all_holidays = all_holidays.filter(~nw.col('holiday').is_in(self.train_holiday_names))
+            all_holidays = all_holidays.filter(nw.col('holiday').is_in(self.train_holiday_names))
             # Add holiday names in fit but not in predict with ds as NA
             s = nw.from_native(self.train_holiday_names, series_only=True)
-            print('before')
-            print(s.to_native())
-            print(all_holidays.to_native())
-            print(s.filter(~s.is_in(all_holidays['holiday'])).to_native())
-            print('after')
 
             holidays_to_add = nw.from_dict({
                 'holiday': s.filter(~s.is_in(all_holidays['holiday']))
-            }, native_namespace=native_namespace).with_columns(ds=nw.lit(None, dtype=nw.Datetime), prior_scale=nw.lit(None, dtype=nw.Float64)).select('ds', 'holiday', 'prior_scale')
-            print(all_holidays.schema)
-            print(holidays_to_add.schema)
+            }, native_namespace=native_namespace)
             all_holidays = nw.concat([all_holidays, holidays_to_add])
             all_holidays = nw.maybe_reset_index(all_holidays)
         return all_holidays.to_native()

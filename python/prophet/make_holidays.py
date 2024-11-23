@@ -77,5 +77,6 @@ def make_holidays_df(year_list, country, province=None, state=None, *, native_na
         for holiday in holidays.get_list(date):
             ds_list.append(_convert_date_to_datetime(date))
             holiday_list.append(holiday)
-    holidays_df = nw.from_dict({'ds': ds_list, 'holiday': holiday_list}, native_namespace=native_namespace)
+    holidays_df = nw.from_dict({'ds': ds_list, 'holiday': holiday_list},
+                               native_namespace=native_namespace)
     return holidays_df
