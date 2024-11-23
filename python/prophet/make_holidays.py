@@ -55,7 +55,7 @@ def _convert_date_to_datetime(date: dt.date) -> dt.datetime:
     return dt.datetime(date.year, date.month, date.day)
 
 
-def make_holidays_df(year_list, country, province=None, state=None):
+def make_holidays_df(year_list, country, province=None, state=None, *, native_namespace):
     """Make dataframe of holidays for given years and countries
 
     Parameters
@@ -77,5 +77,5 @@ def make_holidays_df(year_list, country, province=None, state=None):
         for holiday in holidays.get_list(date):
             ds_list.append(_convert_date_to_datetime(date))
             holiday_list.append(holiday)
-    holidays_df = nw.from_dict({'ds': ds_list, 'holiday': holiday_list}, native_namespace=pd).to_native()
+    holidays_df = nw.from_dict({'ds': ds_list, 'holiday': holiday_list}, native_namespace=native_namespace)
     return holidays_df

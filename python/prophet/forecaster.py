@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import absolute_import, division, print_function
+import narwhals as nw
 
 import dataclasses
 import logging
@@ -525,37 +526,37 @@ class Prophet(object):
         dataframe of holiday dates, in holiday dataframe format used in
         initialization.
         """
-        all_holidays = pd.DataFrame()
+        native_namespace = pd
+        all_holidays = nw.from_dict({'ds': [], 'holiday': []}, schema={'ds': nw.Datetime, 'holiday': nw.String}, native_namespace=native_namespace)
         if self.holidays is not None:
-            all_holidays = self.holidays.copy()
+            all_holidays = nw.from_native(self.holidays.copy(), eager_only=True)
         if self.country_holidays is not None:
             year_list = list({x.year for x in dates})
             country_holidays_df = make_holidays_df(
-                year_list=year_list, country=self.country_holidays
+                year_list=year_list, country=self.country_holidays, native_namespace=native_namespace
             )
-            all_holidays = pd.concat((all_holidays, country_holidays_df),
-                                     sort=False)
-            all_holidays.reset_index(drop=True, inplace=True)
+            all_holidays = nw.concat([all_holidays, country_holidays_df])
+            all_holidays = nw.maybe_reset_index(all_holidays)
         # Drop future holidays not previously seen in training data
         if self.train_holiday_names is not None:
             # Remove holiday names didn't show up in fit
-            index_to_drop = all_holidays.index[
-                np.logical_not(
-                    all_holidays.holiday.isin(self.train_holiday_names)
-                )
-            ]
-            all_holidays = all_holidays.drop(index_to_drop)
+            all_holidays = all_holidays.filter(~nw.col('holiday').is_in(self.train_holiday_names))
             # Add holiday names in fit but not in predict with ds as NA
-            holidays_to_add = pd.DataFrame({
-                'holiday': self.train_holiday_names[
-                    np.logical_not(self.train_holiday_names
-                                       .isin(all_holidays.holiday))
-                ]
-            })
-            all_holidays = pd.concat((all_holidays, holidays_to_add),
-                                     sort=False)
-            all_holidays.reset_index(drop=True, inplace=True)
-        return all_holidays
+            s = nw.from_native(self.train_holiday_names, series_only=True)
+            print('before')
+            print(s.to_native())
+            print(all_holidays.to_native())
+            print(s.filter(~s.is_in(all_holidays['holiday'])).to_native())
+            print('after')
+
+            holidays_to_add = nw.from_dict({
+                'holiday': s.filter(~s.is_in(all_holidays['holiday']))
+            }, native_namespace=native_namespace).with_columns(ds=nw.lit(None, dtype=nw.Datetime), prior_scale=nw.lit(None, dtype=nw.Float64)).select('ds', 'holiday', 'prior_scale')
+            print(all_holidays.schema)
+            print(holidays_to_add.schema)
+            all_holidays = nw.concat([all_holidays, holidays_to_add])
+            all_holidays = nw.maybe_reset_index(all_holidays)
+        return all_holidays.to_native()
 
     def make_holiday_features(self, dates, holidays):
         """Construct a dataframe of holiday features.
