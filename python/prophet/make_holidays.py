@@ -51,7 +51,9 @@ def get_holiday_names(country):
     return set(country_holidays(language="en_US", years=np.arange(1995, 2045)).values())
 
 def _convert_date_to_datetime(date: dt.date) -> dt.datetime:
+    """Convert stlib date to stdlib datetime."""
     return dt.datetime(date.year, date.month, date.day)
+
 
 def make_holidays_df(year_list, country, province=None, state=None):
     """Make dataframe of holidays for given years and countries
@@ -69,8 +71,11 @@ def make_holidays_df(year_list, country, province=None, state=None):
     country_holidays = get_country_holidays_class(country)
     holidays = country_holidays(expand=False, language="en_US", subdiv=province, years=year_list)
 
-    holidays_df = pd.DataFrame(
-        [(_convert_date_to_datetime(date), holiday) for date in holidays for holiday in holidays.get_list(date)],
-        columns=["ds", "holiday"]
-    )
+    ds_list: list[dt.datetime] = []
+    holiday_list: list[str] = []
+    for date in holidays:
+        for holiday in holidays.get_list(date):
+            ds_list.append(_convert_date_to_datetime(date))
+            holiday_list.append(holiday)
+    holidays_df = nw.from_dict({'ds': ds_list, 'holiday': holiday_list}, native_namespace=pd).to_native()
     return holidays_df
