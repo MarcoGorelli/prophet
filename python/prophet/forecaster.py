@@ -412,19 +412,21 @@ class Prophet(object):
         2) We are generating a grid of them.
         3) The user prefers no changepoints be used.
         """
+        import narwhals as nw
+        history = nw.from_native(self.history, eager_only=True)
         if self.changepoints is not None:
             if len(self.changepoints) == 0:
                 pass
             else:
-                too_low = min(self.changepoints) < self.history['ds'].min()
-                too_high = max(self.changepoints) > self.history['ds'].max()
+                too_low = min(self.changepoints) < nw.to_py_scalar(history['ds'].min())
+                too_high = max(self.changepoints) > nw.to_py_scalar(history['ds'].max())
                 if too_low or too_high:
                     raise ValueError(
                         'Changepoints must fall within training data.')
         else:
             # Place potential changepoints evenly through first
             # `changepoint_range` proportion of the history
-            hist_size = int(np.floor(self.history.shape[0]
+            hist_size = int(np.floor(history.shape[0]
                                      * self.changepoint_range))
             if self.n_changepoints + 1 > hist_size:
                 self.n_changepoints = hist_size - 1
@@ -440,7 +442,7 @@ class Prophet(object):
                         .astype(int)
                 )
                 self.changepoints = (
-                    self.history.iloc[cp_indexes]['ds'].tail(-1)
+                    history[cp_indexes]['ds'].tail(-1)
                 )
             else:
                 # set empty changepoints
