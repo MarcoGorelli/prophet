@@ -446,7 +446,7 @@ class Prophet(object):
                 )
             else:
                 # set empty changepoints
-                self.changepoints = pd.Series(pd.to_datetime([]), name='ds')
+                self.changepoints = nw.new_series(name='ds', values=[], dtype=nw.Datetime, native_namespace=nw.get_native_namespace(history)).to_native()
         if len(self.changepoints) > 0:
             self.changepoints_t = np.sort(np.array(
                 (self.changepoints - self.start) / self.t_scale))
@@ -502,12 +502,13 @@ class Prophet(object):
         -------
         pd.DataFrame with seasonality features.
         """
+        import narwhals as nw
         features = cls.fourier_series(dates, period, series_order)
         columns = [
             '{}_delim_{}'.format(prefix, i + 1)
             for i in range(features.shape[1])
         ]
-        return pd.DataFrame(features, columns=columns)
+        return nw.from_dict({key: features[:, i] for i, key in enumerate(columns)}, native_namespace=pd).to_native()
 
     def construct_holiday_dataframe(self, dates):
         """Construct a dataframe of holiday dates.
