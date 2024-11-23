@@ -442,7 +442,7 @@ class Prophet(object):
                         .astype(int)
                 )
                 self.changepoints = (
-                    history[cp_indexes]['ds'].tail(-1)
+                    history[cp_indexes]['ds'].tail(-1).to_native()
                 )
             else:
                 # set empty changepoints
