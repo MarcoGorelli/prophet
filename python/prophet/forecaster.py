@@ -28,15 +28,7 @@ logger.setLevel(logging.INFO)
 NANOSECONDS_TO_SECONDS = 1000 * 1000 * 1000
 
 def _align_and_concat(df1, df2):
-    if df2.is_empty:
-        return df1
-    missing = [x for x in df1.columns if x not in df2.columns]
-    df2 = df2.with_columns(
-        nw.lit(None, dtype=dtype).alias(name)
-        for name, dtype in df1.schema
-        if name in missing
-    )
-    return nw.concat([df1, df2])
+    return nw.maybe_reset_index(nw.concat([df1, df2], how='diagonal'))
 
 class Prophet(object):
     """Prophet forecaster.
@@ -521,7 +513,7 @@ class Prophet(object):
             '{}_delim_{}'.format(prefix, i + 1)
             for i in range(features.shape[1])
         ]
-        return nw.from_dict({key: features[:, i] for i, key in enumerate(columns)}, native_namespace=pd).to_native()
+        return nw.from_numpy(features, schema=columns, native_namespace=pd).to_native()
 
     def construct_holiday_dataframe(self, dates):
         """Construct a dataframe of holiday dates.
@@ -541,14 +533,13 @@ class Prophet(object):
         native_namespace = pd
         all_holidays = nw.from_dict({'ds': [], 'holiday': []}, schema={'ds': nw.Datetime, 'holiday': nw.String}, native_namespace=native_namespace)
         if self.holidays is not None:
-            all_holidays = nw.from_native(self.holidays.copy(), eager_only=True)
+            all_holidays = nw.from_native(self.holidays, eager_only=True)
         if self.country_holidays is not None:
             year_list = list({x.year for x in dates})
             country_holidays_df = make_holidays_df(
                 year_list=year_list, country=self.country_holidays, native_namespace=native_namespace
             )
             all_holidays = _align_and_concat(all_holidays, country_holidays_df)
-            all_holidays = nw.maybe_reset_index(all_holidays)
         # Drop future holidays not previously seen in training data
         if self.train_holiday_names is not None:
             # Remove holiday names didn't show up in fit
@@ -560,7 +551,6 @@ class Prophet(object):
                 'holiday': s.filter(~s.is_in(all_holidays['holiday']))
             }, native_namespace=native_namespace)
             all_holidays = _align_and_concat(all_holidays, holidays_to_add)
-            all_holidays = nw.maybe_reset_index(all_holidays)
         return all_holidays.to_native()
 
     def make_holiday_features(self, dates, holidays):
