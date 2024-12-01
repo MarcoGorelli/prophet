@@ -573,7 +573,7 @@ class Prophet(object):
         prior_scales = {}
         # Makes an index so we can perform `get_loc` below.
         # Strip to just dates.
-        row_index = dates.dt.date.tolist()
+        row_index = nw.from_native(dates.dt.date, series_only=True)
 
         holidays = nw.from_native(holidays, eager_only=True)
         for row in holidays.iter_rows(named=True):
@@ -599,14 +599,10 @@ class Prophet(object):
 
             for offset in range(lw, uw + 1):
                 occurrence = dt + timedelta(days=offset)
-                print('occurrence')
-                print(occurrence)
-                print(type(occurrence))
                 try:
-                    loc = row_index.index(occurrence)
+                    loc = (row_index == occurrence).arg_true().to_list()
                 except ValueError:
                     loc = None
-                print('loc', loc)
                 key = '{}_delim_{}{}'.format(
                     row['holiday'],
                     '+' if offset >= 0 else '-',
