@@ -612,10 +612,9 @@ class Prophet(object):
                     expanded_holidays[key][loc] = 1.
                 else:
                     expanded_holidays[key]  # Access key to generate value
-        holiday_features = pd.DataFrame(expanded_holidays)
+        holiday_features = nw.from_dict(expanded_holidays, native_namespace=pd)
         # Make sure column order is consistent
-        holiday_features = holiday_features[sorted(holiday_features.columns
-                                                                   .tolist())]
+        holiday_features = holiday_features.select(sorted(holiday_features.columns))
         prior_scale_list = [
             prior_scales[h.split('_delim_')[0]]
             for h in holiday_features.columns
@@ -623,8 +622,8 @@ class Prophet(object):
         holiday_names = list(prior_scales.keys())
         # Store holiday names used in fit
         if self.train_holiday_names is None:
-            self.train_holiday_names = pd.Series(holiday_names)
-        return holiday_features, prior_scale_list, holiday_names
+            self.train_holiday_names = nw.new_series(name='', values=holiday_names, native_namespace=pd).to_native()
+        return holiday_features.to_native(), prior_scale_list, holiday_names
 
     def add_regressor(self, name, prior_scale=None, standardize='auto',
                       mode=None):
