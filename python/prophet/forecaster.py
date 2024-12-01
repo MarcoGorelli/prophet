@@ -575,25 +575,27 @@ class Prophet(object):
         # Strip to just dates.
         row_index = pd.DatetimeIndex(dates.dt.date)
 
-        for row in holidays.itertuples():
-            dt = row.ds.date()
+        holidays = nw.from_native(holidays, eager_only=True)
+        for row in holidays.iter_rows(named=True):
+            dt = row['ds'].date()
             try:
-                lw = int(getattr(row, 'lower_window', 0))
-                uw = int(getattr(row, 'upper_window', 0))
+
+                lw = int(row['lower_window']) if 'lower_window' in row else 0
+                uw = int(row['upper_window']) if 'upper_window' in row else 0
             except ValueError:
                 lw = 0
                 uw = 0
-            ps = float(getattr(row, 'prior_scale', self.holidays_prior_scale))
+            ps = float(row['prior_scale']) if 'prior_scale' in row else self.holidays_prior_scale
             if np.isnan(ps):
                 ps = float(self.holidays_prior_scale)
-            if row.holiday in prior_scales and prior_scales[row.holiday] != ps:
+            if row['holiday'] in prior_scales and prior_scales[row['holiday']] != ps:
                 raise ValueError(
                     'Holiday {holiday!r} does not have consistent prior '
-                    'scale specification.'.format(holiday=row.holiday)
+                    'scale specification.'.format(holiday=row['holiday'])
                 )
             if ps <= 0:
                 raise ValueError('Prior scale must be > 0')
-            prior_scales[row.holiday] = ps
+            prior_scales[row['holiday']] = ps
 
             for offset in range(lw, uw + 1):
                 occurrence = pd.to_datetime(dt + timedelta(days=offset))
@@ -602,7 +604,7 @@ class Prophet(object):
                 except KeyError:
                     loc = None
                 key = '{}_delim_{}{}'.format(
-                    row.holiday,
+                    row['holiday'],
                     '+' if offset >= 0 else '-',
                     abs(offset)
                 )
