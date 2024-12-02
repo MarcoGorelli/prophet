@@ -895,45 +895,41 @@ class Prophet(object):
             modes[mode].append('extra_regressors_' + mode)
         # After all of the additive/multiplicative groups have been added,
         modes[self.holidays_mode].append('holidays')
-        # Convert to a binary matrix
-        # print('components col')
-        # print(components['col'])
-        # print('components component')
-        # print(components['component'])
-        # 1/0
-        print('pandas native')
-        print(pd.crosstab(
-            components['col'], components['component'],
-        ).sort_index(level='col'))
 
-        # Compute the crosstab using pivot
+        # Convert to a binary matrix (compute the crosstab using pivot)
         component_cols = nw.from_dict({'col': components['col'], 'component': components['component']}, native_namespace=pd).group_by('col', 'component').agg(nw.len()).pivot(
             values="len",
             index="col",
             on="component"
-        ).select(nw.all().fill_null(0)).sort('col').to_native()
-        if nw.dependencies.is_pandas_like_dataframe(component_cols):
-            component_cols = component_cols.set_index('col')
-            component_cols.columns.name = 'component'
-        else:
-            component_cols = nw.from_native(component_cols, eager_only=True).drop('col').to_native()
+        ).select(nw.all().fill_null(0)).sort('col')
 
         # Add columns for additive and multiplicative terms, if missing
         for name in ['additive_terms', 'multiplicative_terms']:
             if name not in component_cols:
-                component_cols[name] = 0
+                component_cols = component_cols.with_columns(nw.lit(0).alias(name))
         # Remove the placeholder
-        component_cols.drop('zeros', axis=1, inplace=True, errors='ignore')
+        if 'zeros' in component_cols.columns:
+            component_cols = component_cols.drop('zeros')
         # Validation
-        if (max(component_cols['additive_terms']
-            + component_cols['multiplicative_terms']) > 1):
+        if ((component_cols['additive_terms']
+            + component_cols['multiplicative_terms']).max() > 1):
             raise Exception('A bug occurred in seasonal components.')
+    
+        if nw.dependencies.is_pandas_like_dataframe(component_cols.to_native()):
+            component_cols_pd = component_cols.to_native()
+            component_cols_pd = component_cols_pd.set_index('col')
+            component_cols_pd.columns.name = 'component'
+            component_cols = nw.from_native(component_cols_pd, eager_only=True)
+        else:
+            component_cols = nw.from_native(component_cols, eager_only=True).drop('col')
+
         # Compare to the training, if set.
         if self.train_component_cols is not None:
-            component_cols = component_cols[self.train_component_cols.columns]
-            if not component_cols.equals(self.train_component_cols):
+            component_cols = component_cols.select(self.train_component_cols.columns)
+            if not all((component_cols[col] == self.train_component_cols[col]).all() for col in component_cols.columns):
                 raise Exception('A bug occurred in constructing regressors.')
-        return component_cols, modes
+
+        return component_cols.to_native(), modes
 
     def add_group_component(self, components, name, group):
         """Adds a component with given name that contains all of the components
