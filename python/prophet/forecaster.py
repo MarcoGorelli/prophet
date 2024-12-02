@@ -869,12 +869,12 @@ class Prophet(object):
             that columns is used in that component.
         modes: Updated input with combination components.
         """
-        components = pd.DataFrame({
+        components = nw.from_dict({
             'col': np.arange(seasonal_features.shape[1]),
             'component': [
                 x.split('_delim_')[0] for x in seasonal_features.columns
             ],
-        })
+        }, native_namespace=pd)
         # Add total for holidays
         if self.train_holiday_names is not None:
             components = self.add_group_component(
@@ -897,7 +897,7 @@ class Prophet(object):
         modes[self.holidays_mode].append('holidays')
 
         # Convert to a binary matrix (compute the crosstab using pivot)
-        component_cols = nw.from_dict({'col': components['col'], 'component': components['component']}, native_namespace=pd).group_by('col', 'component').agg(nw.len()).pivot(
+        component_cols = components.select(components['col'], components['component']).group_by('col', 'component').agg(nw.len()).pivot(
             values="len",
             index="col",
             on="component"
@@ -915,6 +915,8 @@ class Prophet(object):
             + component_cols['multiplicative_terms']).max() > 1):
             raise Exception('A bug occurred in seasonal components.')
     
+        # pandas-specific index handling - we need to temporarily go outside
+        # of the Narwhals API here
         if nw.dependencies.is_pandas_like_dataframe(component_cols.to_native()):
             component_cols_pd = component_cols.to_native()
             component_cols_pd = component_cols_pd.set_index('col')
@@ -945,13 +947,12 @@ class Prophet(object):
         -------
         Dataframe with components.
         """
-        components = nw.from_native(components, eager_only=True)
         new_comp = components.filter(nw.col('component').is_in(set(group)))
         group_cols = new_comp['col'].unique()
         if len(group_cols) > 0:
             new_comp = nw.from_dict({'col': group_cols, 'component': name}, native_namespace=pd)
             components = nw.concat([components, new_comp])
-        return components.to_native()
+        return components
 
     def parse_seasonality_args(self, name, arg, auto_disable, default_order):
         """Get number of fourier components for built-in seasonalities.
