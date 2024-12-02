@@ -481,7 +481,7 @@ class Prophet(object):
             raise ValueError("series_order must be >= 1")
 
         # convert to days since epoch
-        t = dates.to_numpy(dtype=np.int64) // NANOSECONDS_TO_SECONDS / (3600 * 24.)
+        t = dates.__array__(dtype=np.int64) // NANOSECONDS_TO_SECONDS / (3600 * 24.)
 
         x_T = t * np.pi * 2
         fourier_components = np.empty((dates.shape[0], 2 * series_order))
@@ -513,7 +513,7 @@ class Prophet(object):
             '{}_delim_{}'.format(prefix, i + 1)
             for i in range(features.shape[1])
         ]
-        return nw.from_numpy(features, schema=columns, native_namespace=pd).to_native()
+        return nw.from_numpy(features, schema=columns, native_namespace=pd)
 
     def construct_holiday_dataframe(self, dates):
         """Construct a dataframe of holiday dates.
@@ -805,6 +805,8 @@ class Prophet(object):
         prior_scales = []
         modes = {'additive': [], 'multiplicative': []}
 
+        df = nw.from_native(df, eager_only=True)
+
         # Seasonality features
         for name, props in self.seasonalities.items():
             features = self.make_seasonality_features(
@@ -814,17 +816,17 @@ class Prophet(object):
                 name,
             )
             if props['condition_name'] is not None:
-                features[~df[props['condition_name']]] = 0
-            seasonal_features.append(features)
+                features = features.select(nw.when(df[props['condition_name']]).then(nw.all()).otherwise(0))
+            seasonal_features.append(features.to_native())
             prior_scales.extend(
                 [props['prior_scale']] * features.shape[1])
             modes[props['mode']].append(name)
 
         # Holiday features
-        holidays = self.construct_holiday_dataframe(df['ds'])
+        holidays = self.construct_holiday_dataframe(df['ds'].to_native())
         if len(holidays) > 0:
             features, holiday_priors, holiday_names = (
-                self.make_holiday_features(df['ds'], holidays)
+                self.make_holiday_features(df['ds'].to_native(), holidays)
             )
             seasonal_features.append(features)
             prior_scales.extend(holiday_priors)
@@ -832,7 +834,7 @@ class Prophet(object):
 
         # Additional regressors
         for name, props in self.extra_regressors.items():
-            seasonal_features.append(pd.DataFrame(df[name]))
+            seasonal_features.append(pd.DataFrame(df[name].to_native()))
             prior_scales.append(props['prior_scale'])
             modes[props['mode']].append(name)
 
