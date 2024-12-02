@@ -724,7 +724,7 @@ class TestProphetCustomSeasonalComponent:
             c for c in seasonal_features.columns if c.startswith("conditional_weekly")
         ]
         assert np.array_equal(
-            (seasonal_features[condition_cols] != 0).any(axis=1).values,
+            seasonal_features.select(mask=nw.any_horizontal(nw.col(condition_cols) != 0))['mask'].to_numpy(),
             df["is_conditional_week"].values,
         )
 

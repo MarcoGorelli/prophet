@@ -843,11 +843,11 @@ class Prophet(object):
             seasonal_features.append(nw.from_dict({'zeros': np.zeros(df.shape[0])}, native_namespace=pd))
             prior_scales.append(1.)
 
-        seasonal_features = nw.concat(seasonal_features, how='horizontal').to_native()
+        seasonal_features = nw.concat(seasonal_features, how='horizontal')
         component_cols, modes = self.regressor_column_matrix(
             seasonal_features, modes
         )
-        return seasonal_features, prior_scales, component_cols.to_native(), modes
+        return seasonal_features, prior_scales, component_cols, modes
 
     def regressor_column_matrix(self, seasonal_features, modes):
         """Dataframe indicating which columns of the feature matrix correspond
@@ -1154,7 +1154,7 @@ class Prophet(object):
         self.set_auto_seasonalities()
         seasonal_features, prior_scales, component_cols, modes = (
             self.make_all_seasonality_features(self.history))
-        self.train_component_cols = component_cols
+        self.train_component_cols = component_cols.to_native()
         self.component_modes = modes
         self.fit_kwargs = deepcopy(kwargs)
 
@@ -1174,10 +1174,10 @@ class Prophet(object):
             y=self.history['y_scaled'],
             t=self.history['t'],
             t_change=self.changepoints_t,
-            X=seasonal_features,
+            X=seasonal_features.to_native(),
             sigmas=prior_scales,
-            s_a=component_cols['additive_terms'],
-            s_m=component_cols['multiplicative_terms'],
+            s_a=component_cols['additive_terms'].to_native(),
+            s_m=component_cols['multiplicative_terms'].to_native(),
             cap=cap,
         )
 
@@ -1425,10 +1425,10 @@ class Prophet(object):
             lower_p = 100 * (1.0 - self.interval_width) / 2
             upper_p = 100 * (1.0 + self.interval_width) / 2
 
-        X = seasonal_features.values
+        X = seasonal_features.to_numpy()
         data = {}
         for component in component_cols.columns:
-            beta_c = self.params['beta'] * component_cols[component].values
+            beta_c = self.params['beta'] * component_cols[component].to_numpy()
 
             comp = np.matmul(X, beta_c.transpose())
             if component in self.component_modes['additive']:
@@ -1565,9 +1565,10 @@ class Prophet(object):
         """
         # Get the seasonality and regressor components, which are deterministic per iteration
         beta = self.params['beta'][iteration]
-        Xb_a = np.matmul(seasonal_features.values,
-                        beta * s_a.values) * self.y_scale
-        Xb_m = np.matmul(seasonal_features.values, beta * s_m.values)
+        seasonal_features_arr = seasonal_features.to_numpy()
+        Xb_a = np.matmul(seasonal_features_arr,
+                        beta * s_a.to_numpy()) * self.y_scale
+        Xb_m = np.matmul(seasonal_features_arr, beta * s_m.to_numpy())
         # Get the future trend, which is stochastic per iteration
         trends = self.sample_predictive_trend_vectorized(df, n_samples, iteration)  # already on the same scale as the actual data
         sigma = self.params['sigma_obs'][iteration]
