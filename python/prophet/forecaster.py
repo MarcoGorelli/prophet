@@ -847,7 +847,7 @@ class Prophet(object):
         component_cols, modes = self.regressor_column_matrix(
             seasonal_features, modes
         )
-        return seasonal_features, prior_scales, component_cols, modes
+        return seasonal_features, prior_scales, component_cols.to_native(), modes
 
     def regressor_column_matrix(self, seasonal_features, modes):
         """Dataframe indicating which columns of the feature matrix correspond
@@ -931,7 +931,7 @@ class Prophet(object):
             if not all((component_cols[col] == self.train_component_cols[col]).all() for col in component_cols.columns):
                 raise Exception('A bug occurred in constructing regressors.')
 
-        return component_cols.to_native(), modes
+        return component_cols, modes
 
     def add_group_component(self, components, name, group):
         """Adds a component with given name that contains all of the components
