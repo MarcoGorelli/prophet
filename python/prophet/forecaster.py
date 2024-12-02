@@ -930,12 +930,13 @@ class Prophet(object):
         -------
         Dataframe with components.
         """
-        new_comp = components[components['component'].isin(set(group))].copy()
+        components = nw.from_native(components, eager_only=True)
+        new_comp = components.filter(nw.col('component').is_in(set(group)))
         group_cols = new_comp['col'].unique()
         if len(group_cols) > 0:
-            new_comp = pd.DataFrame({'col': group_cols, 'component': name})
-            components = pd.concat([components, new_comp])
-        return components
+            new_comp = nw.from_dict({'col': group_cols, 'component': name}, native_namespace=pd)
+            components = nw.concat([components, new_comp])
+        return components.to_native()
 
     def parse_seasonality_args(self, name, arg, auto_disable, default_order):
         """Get number of fourier components for built-in seasonalities.
