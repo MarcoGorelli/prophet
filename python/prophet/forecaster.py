@@ -896,9 +896,28 @@ class Prophet(object):
         # After all of the additive/multiplicative groups have been added,
         modes[self.holidays_mode].append('holidays')
         # Convert to a binary matrix
-        component_cols = pd.crosstab(
+        # print('components col')
+        # print(components['col'])
+        # print('components component')
+        # print(components['component'])
+        # 1/0
+        print('pandas native')
+        print(pd.crosstab(
             components['col'], components['component'],
-        ).sort_index(level='col')
+        ).sort_index(level='col'))
+
+        # Compute the crosstab using pivot
+        component_cols = nw.from_dict({'col': components['col'], 'component': components['component']}, native_namespace=pd).group_by('col', 'component').agg(nw.len()).pivot(
+            values="len",
+            index="col",
+            on="component"
+        ).select(nw.all().fill_null(0)).sort('col').to_native()
+        if nw.dependencies.is_pandas_like_dataframe(component_cols):
+            component_cols = component_cols.set_index('col')
+            component_cols.columns.name = 'component'
+        else:
+            component_cols = nw.from_native(component_cols, eager_only=True).drop('col').to_native()
+
         # Add columns for additive and multiplicative terms, if missing
         for name in ['additive_terms', 'multiplicative_terms']:
             if name not in component_cols:
