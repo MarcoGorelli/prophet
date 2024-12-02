@@ -623,7 +623,7 @@ class Prophet(object):
         # Store holiday names used in fit
         if self.train_holiday_names is None:
             self.train_holiday_names = nw.new_series(name='', values=holiday_names, native_namespace=pd).to_native()
-        return holiday_features.to_native(), prior_scale_list, holiday_names
+        return holiday_features, prior_scale_list, holiday_names
 
     def add_regressor(self, name, prior_scale=None, standardize='auto',
                       mode=None):
@@ -817,7 +817,7 @@ class Prophet(object):
             )
             if props['condition_name'] is not None:
                 features = features.select(nw.when(df[props['condition_name']]).then(nw.all()).otherwise(0))
-            seasonal_features.append(features.to_native())
+            seasonal_features.append(features)
             prior_scales.extend(
                 [props['prior_scale']] * features.shape[1])
             modes[props['mode']].append(name)
@@ -834,17 +834,16 @@ class Prophet(object):
 
         # Additional regressors
         for name, props in self.extra_regressors.items():
-            seasonal_features.append(pd.DataFrame(df[name].to_native()))
+            seasonal_features.append(df[name].to_frame())
             prior_scales.append(props['prior_scale'])
             modes[props['mode']].append(name)
 
         # Dummy to prevent empty X
         if len(seasonal_features) == 0:
-            seasonal_features.append(
-                pd.DataFrame({'zeros': np.zeros(df.shape[0])}))
+            seasonal_features.append(nw.from_dict({'zeros': np.zeros(df.shape[0])}, native_namespace=pd))
             prior_scales.append(1.)
 
-        seasonal_features = pd.concat(seasonal_features, axis=1)
+        seasonal_features = nw.concat(seasonal_features, how='horizontal').to_native()
         component_cols, modes = self.regressor_column_matrix(
             seasonal_features, modes
         )

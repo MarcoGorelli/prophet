@@ -6,6 +6,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+import narwhals as nw
 
 from prophet import Prophet
 from prophet.utilities import warm_start_params
@@ -742,7 +743,7 @@ class TestProphetHolidays:
         df = pd.DataFrame({"ds": pd.date_range("2016-12-20", "2016-12-31")})
         feats, priors, names = model.make_holiday_features(df["ds"], model.holidays)
         assert feats.shape == (df.shape[0], 2)
-        assert (feats.sum(axis=0) - np.array([1.0, 1.0])).sum() == 0.0
+        assert (feats.select(nw.all().sum()).to_numpy() - np.array([1.0, 1.0])).sum() == 0.0
         assert priors == [10.0, 10.0]  # Default prior
         assert names == ["xmas"]
 
