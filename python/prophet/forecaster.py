@@ -476,12 +476,14 @@ class Prophet(object):
             self.changepoints_t = (
                 (nw.from_native(self.changepoints, series_only=True) - self.start).dt.total_nanoseconds()/self.t_scale.total_seconds()
             ).sort().to_numpy() / 1_000_000_000
+            print('*'*10)
+            print(self.changepoints_t)
         else:
             self.changepoints_t = np.array([0])  # dummy changepoint
 
     @staticmethod
     def fourier_series(
-        dates: pd.Series,
+        dates: nw.Series,
         period: Union[int, float],
         series_order: int,
     ) -> NDArray[np.float64]:
@@ -502,7 +504,10 @@ class Prophet(object):
             raise ValueError("series_order must be >= 1")
 
         # convert to days since epoch
-        t = dates.__array__(dtype=np.int64) // NANOSECONDS_TO_SECONDS / (3600 * 24.)
+        dates = nw.from_native(dates, series_only=True)
+        t = dates.dt.timestamp('ns') // NANOSECONDS_TO_SECONDS / (3600 * 24.)
+        print('t')
+        print(t)
 
         x_T = t * np.pi * 2
         fourier_components = np.empty((dates.shape[0], 2 * series_order))
@@ -513,7 +518,7 @@ class Prophet(object):
         return fourier_components
 
     @classmethod
-    def make_seasonality_features(cls, dates, period, series_order, prefix):
+    def make_seasonality_features(cls, dates, period, series_order, prefix, native_namespace):
         """Data frame with seasonality features.
 
         Parameters
@@ -530,11 +535,19 @@ class Prophet(object):
         """
         import narwhals as nw
         features = cls.fourier_series(dates, period, series_order)
+        print('fourier features')
+        print(features)
+        print('dates')
+        print(dates.to_native())
+        print('period')
+        print(period)
+        print('series_order')
+        print(series_order)
         columns = [
             '{}_delim_{}'.format(prefix, i + 1)
             for i in range(features.shape[1])
         ]
-        return nw.from_numpy(features, schema=columns, native_namespace=pd)
+        return nw.from_numpy(features, schema=columns, native_namespace=native_namespace)
 
     def construct_holiday_dataframe(self, dates):
         """Construct a dataframe of holiday dates.
@@ -835,7 +848,10 @@ class Prophet(object):
                 props['period'],
                 props['fourier_order'],
                 name,
+                nw.get_native_namespace(df)
             )
+            print('features842')
+            print(features.to_native())
             if props['condition_name'] is not None:
                 features = features.select(nw.when(df[props['condition_name']]).then(nw.all()).otherwise(0))
             seasonal_features.append(features)
@@ -1177,6 +1193,8 @@ class Prophet(object):
 
         self.history = self.setup_dataframe(history.to_native(), initialize_scales=True)
         self.set_auto_seasonalities()
+        print('history')
+        print(self.history)
         seasonal_features, prior_scales, component_cols, modes = (
             self.make_all_seasonality_features(self.history))
         self.train_component_cols = component_cols.to_native()
@@ -1263,10 +1281,15 @@ class Prophet(object):
                 changepoints = changepoints.str.to_datetime()
             self.changepoints = changepoints.to_native()
         model_inputs = self.preprocess(df, **kwargs)
+        print('model inputs')
+        print(model_inputs)
         initial_params = self.calculate_initial_params(model_inputs.K)
 
         dat = dataclasses.asdict(model_inputs)
         stan_init = dataclasses.asdict(initial_params)
+
+        print('initial params')
+        print(initial_params)
 
         if self.history['y'].min() == self.history['y'].max() and \
                 (self.growth == 'linear' or self.growth == 'flat'):
@@ -1274,10 +1297,19 @@ class Prophet(object):
             self.params['sigma_obs'] = 1e-9
             for par in self.params:
                 self.params[par] = np.array([self.params[par]])
+            print('here1')
         elif self.mcmc_samples > 0:
             self.params = self.stan_backend.sampling(stan_init, dat, self.mcmc_samples, **kwargs)
+            print('here2')
         else:
             self.params = self.stan_backend.fit(stan_init, dat, **kwargs)
+            print('here3')
+            print(self.params)
+            print('dat')
+            print(dat)
+            print(dat['s_a'].to_native())
+            print(dat['s_m'].to_native())
+            print(dat['X'].to_native())
 
         self.stan_fit = self.stan_backend.stan_fit
         # If no changepoints were requested, replace delta with 0s
@@ -1317,8 +1349,12 @@ class Prophet(object):
                 raise ValueError('Dataframe has no rows.')
             df = self.setup_dataframe(df.copy())
 
+        print('foobar')
+        print(df)
         df['trend'] = self.predict_trend(df)
+        print(df['trend'])
         seasonal_components = self.predict_seasonal_components(df)
+        print(seasonal_components.to_native())
         if self.uncertainty_samples:
             intervals = self.predict_uncertainty(df, vectorized)
         else:
@@ -1358,6 +1394,12 @@ class Prophet(object):
         deltas_t = (changepoint_ts[None, :] <= t[..., None]) * deltas
         k_t = deltas_t.sum(axis=1) + k
         m_t = (deltas_t * -changepoint_ts).sum(axis=1) + m
+        print(changepoint_ts)
+        print('deltas')
+        print(deltas)
+        print(deltas_t)
+        print(k_t)
+        print(m_t)
         return k_t * t + m_t
 
     @staticmethod
@@ -1423,9 +1465,12 @@ class Prophet(object):
         """
         k = np.nanmean(self.params['k'])
         m = np.nanmean(self.params['m'])
+        print('params')
+        print(self.params)
         deltas = np.nanmean(self.params['delta'], axis=0)
 
         t = np.array(df['t'])
+        print(self.growth)
         if self.growth == 'linear':
             trend = self.piecewise_linear(t, deltas, k, m, self.changepoints_t)
         elif self.growth == 'logistic':
@@ -1436,6 +1481,9 @@ class Prophet(object):
             # constant trend
             trend = self.flat_trend(t, m)
 
+        print('yscale')
+        print(self.y_scale)
+        print(df['floor'])
         return trend * self.y_scale + df['floor']
 
     def predict_seasonal_components(self, df):
