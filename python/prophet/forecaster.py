@@ -1140,17 +1140,18 @@ class Prophet(object):
         Saves the preprocessed data to the instantiated object, and also returns the relevant components
         as a ModelInputData object.
         """
-        if ('ds' not in df) or ('y' not in df):
+        df = nw.from_native(df, eager_only=True)
+        if ('ds' not in df.columns) or ('y' not in df.columns):
             raise ValueError(
                 'Dataframe must have columns "ds" and "y" with the dates and '
                 'values respectively.'
             )
-        history = df[df['y'].notnull()].copy()
+        history = df.filter(~df['y'].is_null())
         if history.shape[0] < 2:
             raise ValueError('Dataframe has less than 2 non-NaN rows.')
-        self.history_dates = pd.to_datetime(pd.Series(df['ds'].unique(), name='ds')).sort_values()
+        self.history_dates = pd.to_datetime(pd.Series(df['ds'].unique().to_native(), name='ds')).sort_values()
 
-        self.history = self.setup_dataframe(history, initialize_scales=True)
+        self.history = self.setup_dataframe(history.to_native(), initialize_scales=True)
         self.set_auto_seasonalities()
         seasonal_features, prior_scales, component_cols, modes = (
             self.make_all_seasonality_features(self.history))
@@ -1301,12 +1302,13 @@ class Prophet(object):
         if self.logistic_floor:
             cols.append('floor')
         # Add in forecast components
-        df2 = pd.concat((df[cols], intervals, seasonal_components), axis=1)
-        df2['yhat'] = (
-                df2['trend'] * (1 + df2['multiplicative_terms'])
-                + df2['additive_terms']
+        to_concat = [x for x in (nw.from_native(df[cols]), intervals, seasonal_components) if x is not None]
+        df2 = nw.concat(to_concat, how='horizontal')
+        df2 = df2.with_columns(
+            yhat = nw.col('trend') * (1 + nw.col('multiplicative_terms'))
+                + nw.col('additive_terms')
         )
-        return df2
+        return df2.to_native()
 
     @staticmethod
     def piecewise_linear(t, deltas, k, m, changepoint_ts):
@@ -1441,7 +1443,7 @@ class Prophet(object):
                 data[component + '_upper'] = self.percentile(
                     comp, upper_p, axis=1,
                 )
-        return pd.DataFrame(data)
+        return nw.from_dict(data, native_namespace=pd)
 
     def predict_uncertainty(self, df: pd.DataFrame, vectorized: bool) -> pd.DataFrame:
         """Prediction intervals for yhat and trend.
@@ -1467,7 +1469,7 @@ class Prophet(object):
             series['{}_upper'.format(key)] = self.percentile(
                 sim_values[key], upper_p, axis=1)
 
-        return pd.DataFrame(series)
+        return nw.from_dict(series, native_namespace=pd)
 
     def sample_posterior_predictive(self, df: pd.DataFrame, vectorized: bool) -> Dict[str, np.ndarray]:
         """Prophet posterior predictive samples.
@@ -1880,7 +1882,7 @@ class Prophet(object):
         if include_history:
             dates = np.concatenate((np.array(self.history_dates), dates))
 
-        return pd.DataFrame({'ds': dates})
+        return nw.from_dict({'ds': dates}, native_namespace=pd).to_native()
 
     def plot(self, fcst, ax=None, uncertainty=True, plot_cap=True,
              xlabel='ds', ylabel='y', figsize=(10, 6), include_legend=False):
