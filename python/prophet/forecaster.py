@@ -1021,13 +1021,14 @@ class Prophet(object):
         Turns on daily seasonality if there is >=2 days of history, and the
         spacing between dates in the history is <1 day.
         """
-        first = self.history['ds'].min()
-        last = self.history['ds'].max()
-        dt = self.history['ds'].diff()
-        min_dt = dt.iloc[dt.values.nonzero()[0]].min()
+        ds = nw.from_native(self.history, eager_only=True)['ds']
+        first = ds.min()
+        last = ds.max()
+        dt = ds.diff()
+        min_dt = dt.filter(dt != 0).min()
 
         # Yearly seasonality
-        yearly_disable = last - first < pd.Timedelta(days=730)
+        yearly_disable = last - first < timedelta(days=730)
         fourier_order = self.parse_seasonality_args(
             'yearly', self.yearly_seasonality, yearly_disable, 10)
         if fourier_order > 0:
@@ -1040,8 +1041,8 @@ class Prophet(object):
             }
 
         # Weekly seasonality
-        weekly_disable = ((last - first < pd.Timedelta(weeks=2)) or
-                          (min_dt >= pd.Timedelta(weeks=1)))
+        weekly_disable = ((last - first < timedelta(weeks=2)) or
+                          (min_dt >= timedelta(weeks=1)))
         fourier_order = self.parse_seasonality_args(
             'weekly', self.weekly_seasonality, weekly_disable, 3)
         if fourier_order > 0:
@@ -1054,8 +1055,8 @@ class Prophet(object):
             }
 
         # Daily seasonality
-        daily_disable = ((last - first < pd.Timedelta(days=2)) or
-                         (min_dt >= pd.Timedelta(days=1)))
+        daily_disable = ((last - first < timedelta(days=2)) or
+                         (min_dt >= timedelta(days=1)))
         fourier_order = self.parse_seasonality_args(
             'daily', self.daily_seasonality, daily_disable, 4)
         if fourier_order > 0:
