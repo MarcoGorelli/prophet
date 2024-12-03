@@ -1025,7 +1025,7 @@ class Prophet(object):
         first = ds.min()
         last = ds.max()
         dt = ds.diff()
-        min_dt = dt.filter(dt != 0).min()
+        min_dt = dt.filter(dt != timedelta(0)).min()
 
         # Yearly seasonality
         yearly_disable = last - first < timedelta(days=730)
@@ -1086,10 +1086,15 @@ class Prophet(object):
         A tuple (k, m) with the rate (k) and offset (m) of the linear growth
         function.
         """
-        i0, i1 = df['ds'].idxmin(), df['ds'].idxmax()
-        T = df['t'].iloc[i1] - df['t'].iloc[i0]
-        k = (df['y_scaled'].iloc[i1] - df['y_scaled'].iloc[i0]) / T
-        m = df['y_scaled'].iloc[i0] - k * df['t'].iloc[i0]
+        df = nw.from_native(df, eager_only=True)
+        argmin = lambda s: s.to_frame().with_row_index().filter(s == s.min())['index'].drop_nulls().min().item()
+        argmax = lambda s: s.to_frame().with_row_index().filter(s == s.max())['index'].drop_nulls().min().item()
+        i0, i1 = argmin(df['ds']), argmax(df['ds'])
+        print('i0', i0)
+        print('i1', i1)
+        T = df['t'][i1] - df['t'][i0]
+        k = (df['y_scaled'][i1] - df['y_scaled'][i0]) / T
+        m = df['y_scaled'][i0] - k * df['t'][i0]
         return (k, m)
 
     @staticmethod
