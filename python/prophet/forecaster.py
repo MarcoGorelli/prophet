@@ -30,6 +30,11 @@ NANOSECONDS_TO_SECONDS = 1000 * 1000 * 1000
 def _align_and_concat(df1, df2):
     return nw.maybe_reset_index(nw.concat([df1, df2], how='diagonal'))
 
+def to_numeric(s: nw.Series) -> nw.Series:
+    if s.dtype.is_numeric():
+        return s
+    return s.cast(nw.Float64)
+
 class Prophet(object):
     """Prophet forecaster.
 
@@ -283,28 +288,31 @@ class Prophet(object):
         -------
         pd.DataFrame prepared for fitting or predicting.
         """
-        if 'y' in df:  # 'y' will be in training data
-            df['y'] = pd.to_numeric(df['y'])
-            if np.isinf(df['y'].values).any():
+        is_pandas = nw.dependencies.is_pandas_dataframe(df)
+        df = nw.from_native(df, eager_only=True)
+        if 'y' in df.columns and is_pandas:  # 'y' will be in training data
+            df = df.with_columns(to_numeric(df['y']))
+            if (~df['y'].is_finite()).any():
                 raise ValueError('Found infinity in column y.')
-        if df['ds'].dtype == np.int64:
-            df['ds'] = df['ds'].astype(str)
-        df['ds'] = pd.to_datetime(df['ds'])
-        if df['ds'].dt.tz is not None:
+        if df['ds'].dtype == nw.Int64:
+            df = df.with_columns(nw.col('ds').cast(nw.String))
+        if df['ds'].dtype != nw.Datetime and df['ds'].dtype != nw.Date:
+            df = df.with_columns(nw.col('ds').str.to_datetime())
+        if df['ds'].dtype.time_zone is not None:
             raise ValueError(
                 'Column ds has timezone specified, which is not supported. '
                 'Remove timezone.'
             )
-        if df['ds'].isnull().any():
-            raise ValueError('Found NaN in column ds.')
+        if df['ds'].is_null().any():
+            raise ValueError('Found null in column ds.')
         for name in self.extra_regressors:
-            if name not in df:
+            if name not in df.columns:
                 raise ValueError(
                     'Regressor {name!r} missing from dataframe'
                     .format(name=name)
                 )
-            df[name] = pd.to_numeric(df[name])
-            if df[name].isnull().any():
+            df = df.with_columns(to_numeric(df[name]))
+            if df[name].is_null().any():
                 raise ValueError(
                     'Found NaN in column {name!r}'.format(name=name)
                 )
@@ -316,28 +324,33 @@ class Prophet(object):
                         'Condition {condition_name!r} missing from dataframe'
                         .format(condition_name=condition_name)
                     )
-                if not df[condition_name].isin([True, False]).all():
+                if not df[condition_name].is_in([True, False]).all():
                     raise ValueError(
                         'Found non-boolean in column {condition_name!r}'
                         .format(condition_name=condition_name)
                     )
-                df[condition_name] = df[condition_name].astype('bool')
+                df = df.with_columns(nw.col(condition_name).cast(nw.Boolean))
 
-        if df.index.name == 'ds':
-            df.index.name = None
-        df = df.sort_values('ds', kind='mergesort')
-        df = df.reset_index(drop=True)
+        if is_pandas:
+            df = df.to_native()
+            if df.index.name == 'ds':
+                df.index.name = None
+            df = df.sort_values('ds', kind='mergesort')
+            df = df.reset_index(drop=True)
+            df = nw.from_native(df)
+        else:
+            df = df.sort('ds')
 
-        self.initialize_scales(initialize_scales, df)
+        self.initialize_scales(initialize_scales, df.to_native())
 
         if self.logistic_floor:
             if 'floor' not in df:
                 raise ValueError('Expected column "floor".')
         else:
             if self.scaling == "absmax":
-                df['floor'] = 0.
+                df = df.with_columns(floor = nw.lit(0.))
             elif self.scaling == "minmax":
-                df['floor'] = self.y_min
+                df = df.with_columns(floor = nw.lit(self.y_min))
         if self.growth == 'logistic':
             if 'cap' not in df:
                 raise ValueError(
@@ -348,15 +361,23 @@ class Prophet(object):
                 raise ValueError(
                     'cap must be greater than floor (which defaults to 0).'
                 )
-            df['cap_scaled'] = (df['cap'] - df['floor']) / self.y_scale
+            df = df.with_columns(
+                cap_scaled = (nw.col('cap') - nw.col('floor')) / self.y_scale
+            )
 
-        df['t'] = (df['ds'] - self.start) / self.t_scale
-        if 'y' in df:
-            df['y_scaled'] = (df['y'] - df['floor']) / self.y_scale
+        df = df.with_columns(
+            t = (nw.col('ds') - self.start) / self.t_scale
+        )
+        if 'y' in df.columns:
+            df = df.with_columns(
+                y_scaled = (nw.col('y') - nw.col('floor')) / self.y_scale
+            )
 
         for name, props in self.extra_regressors.items():
-            df[name] = ((df[name] - props['mu']) / props['std'])
-        return df
+            df = df.with_columns(
+                (nw.col(name) - props['mu']) / props['std']
+            )
+        return df.to_native()
 
     def initialize_scales(self, initialize_scales, df):
         """Initialize model scales.
