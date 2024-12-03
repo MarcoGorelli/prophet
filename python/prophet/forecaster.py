@@ -114,7 +114,6 @@ class Prophet(object):
 
         self.changepoints = changepoints
         if self.changepoints is not None:
-            self.changepoints = pd.Series(pd.to_datetime(self.changepoints), name='ds')
             self.n_changepoints = len(self.changepoints)
             self.specified_changepoints = True
         else:
@@ -1090,8 +1089,6 @@ class Prophet(object):
         argmin = lambda s: s.to_frame().with_row_index().filter(s == s.min())['index'].drop_nulls().min().item()
         argmax = lambda s: s.to_frame().with_row_index().filter(s == s.max())['index'].drop_nulls().min().item()
         i0, i1 = argmin(df['ds']), argmax(df['ds'])
-        print('i0', i0)
-        print('i1', i1)
         T = df['t'][i1] - df['t'][i0]
         k = (df['y_scaled'][i1] - df['y_scaled'][i0]) / T
         m = df['y_scaled'][i0] - k * df['t'][i0]
@@ -1167,7 +1164,6 @@ class Prophet(object):
         Saves the preprocessed data to the instantiated object, and also returns the relevant components
         as a ModelInputData object.
         """
-        df = nw.from_native(df, eager_only=True)
         if ('ds' not in df.columns) or ('y' not in df.columns):
             raise ValueError(
                 'Dataframe must have columns "ds" and "y" with the dates and '
@@ -1259,7 +1255,11 @@ class Prophet(object):
         if self.history is not None:
             raise Exception('Prophet object can only be fit once. '
                             'Instantiate a new object.')
-
+        df = nw.from_native(df, eager_only=True)
+        changepoints = nw.new_series('ds', self.changepoints, native_namespace=nw.get_native_namespace(df))
+        if changepoints.dtype != nw.Datetime and changepoints.dtype != nw.Date:
+            changepoints = changepoints.str.to_datetime()
+        self.changepoints = changepoints
         model_inputs = self.preprocess(df, **kwargs)
         initial_params = self.calculate_initial_params(model_inputs.K)
 
