@@ -290,7 +290,7 @@ class Prophet(object):
         """
         is_pandas = nw.dependencies.is_pandas_dataframe(df)
         df = nw.from_native(df, eager_only=True)
-        if 'y' in df.columns and is_pandas:  # 'y' will be in training data
+        if 'y' in df.columns:  # 'y' will be in training data
             df = df.with_columns(to_numeric(df['y']))
             if (~df['y'].is_finite()).any():
                 raise ValueError('Found infinity in column y.')
