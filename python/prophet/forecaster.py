@@ -473,8 +473,9 @@ class Prophet(object):
                 # set empty changepoints
                 self.changepoints = nw.new_series(name='ds', values=[], dtype=nw.Datetime, native_namespace=nw.get_native_namespace(history)).to_native()
         if len(self.changepoints) > 0:
-            self.changepoints_t = np.sort(np.array(
-                (self.changepoints - self.start) / self.t_scale))
+            self.changepoints_t = (
+                (nw.from_native(self.changepoints, series_only=True) - self.start).dt.total_nanoseconds()/self.t_scale.total_seconds()
+            ).sort().to_numpy() / 1_000_000_000
         else:
             self.changepoints_t = np.array([0])  # dummy changepoint
 
