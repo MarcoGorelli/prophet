@@ -1174,10 +1174,10 @@ class Prophet(object):
             y=self.history['y_scaled'],
             t=self.history['t'],
             t_change=self.changepoints_t,
-            X=seasonal_features.to_native(),
+            X=seasonal_features,
             sigmas=prior_scales,
-            s_a=component_cols['additive_terms'].to_native(),
-            s_m=component_cols['multiplicative_terms'].to_native(),
+            s_a=component_cols['additive_terms'],
+            s_m=component_cols['multiplicative_terms'],
             cap=cap,
         )
 

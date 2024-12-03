@@ -191,12 +191,12 @@ class CmdStanPyBackend(IStanBackend):
             'K': data['K'],
             'tau': data['tau'],
             'trend_indicator': data['trend_indicator'],
-            'y': data['y'].tolist(),
-            't': data['t'].tolist(),
+            'y': data['y'].to_list(),
+            't': data['t'].to_list(),
             'cap': data['cap'].tolist(),
             't_change': data['t_change'].tolist(),
-            's_a': data['s_a'].tolist(),
-            's_m': data['s_m'].tolist(),
+            's_a': data['s_a'].to_list(),
+            's_m': data['s_m'].to_list(),
             'X': data['X'].to_numpy().tolist(),
             'sigmas': data['sigmas']
         }
