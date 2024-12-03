@@ -1256,10 +1256,11 @@ class Prophet(object):
             raise Exception('Prophet object can only be fit once. '
                             'Instantiate a new object.')
         df = nw.from_native(df, eager_only=True)
-        changepoints = nw.new_series('ds', self.changepoints, native_namespace=nw.get_native_namespace(df))
-        if changepoints.dtype != nw.Datetime and changepoints.dtype != nw.Date:
-            changepoints = changepoints.str.to_datetime()
-        self.changepoints = changepoints
+        if self.changepoints is not None:
+            changepoints = nw.new_series('ds', self.changepoints, native_namespace=nw.get_native_namespace(df))
+            if changepoints.dtype != nw.Datetime and changepoints.dtype != nw.Date:
+                changepoints = changepoints.str.to_datetime()
+            self.changepoints = changepoints.to_native()
         model_inputs = self.preprocess(df, **kwargs)
         initial_params = self.calculate_initial_params(model_inputs.K)
 
