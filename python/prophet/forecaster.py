@@ -1087,12 +1087,12 @@ class Prophet(object):
         function.
         """
         df = nw.from_native(df, eager_only=True)
-        argmin = lambda s: s.to_frame().with_row_index().filter(s == s.min())['index'].drop_nulls().min().item()
-        argmax = lambda s: s.to_frame().with_row_index().filter(s == s.max())['index'].drop_nulls().min().item()
+        argmin = lambda s: s.to_frame().with_row_index().filter(s == s.min())['index'].drop_nulls().min()
+        argmax = lambda s: s.to_frame().with_row_index().filter(s == s.max())['index'].drop_nulls().min()
         i0, i1 = argmin(df['ds']), argmax(df['ds'])
-        T = df['t'][i1] - df['t'][i0]
-        k = (df['y_scaled'][i1] - df['y_scaled'][i0]) / T
-        m = df['y_scaled'][i0] - k * df['t'][i0]
+        T = df['t'].item(i1) - df['t'].item(i0)
+        k = (df['y_scaled'].item(i1) - df['y_scaled'].item(i0)) / T
+        m = df['y_scaled'].item(i0) - k * df['t'].item(i0)
         return (k, m)
 
     @staticmethod
