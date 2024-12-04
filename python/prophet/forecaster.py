@@ -1694,7 +1694,7 @@ class Prophet(object):
         uncertainty = self._sample_uncertainty(df, n_samples, iteration)
         return (
             (np.tile(expected, (n_samples, 1)) + uncertainty) * self.y_scale +
-            np.tile(df["floor"].values, (n_samples, 1))
+            np.tile(df["floor"].to_numpy(), (n_samples, 1))
         )
 
     def _sample_uncertainty(self, df: pd.DataFrame, n_samples: int, iteration: int = 0) -> np.ndarray:
@@ -1711,11 +1711,12 @@ class Prophet(object):
         Draws of the trend changes with shape (n_samples, len(df)). Values are standardized.
         """
         # handle only historic data
+        df = nw.from_native(df)
         if df["t"].max() <= 1:
             # there is no trend uncertainty in historic trends
             uncertainties = np.zeros((n_samples, len(df)))
         else:
-            future_df = df.loc[df["t"] > 1]
+            future_df = df.filter(nw.col("t") > 1)
             n_length = len(future_df)
             # handle 1 length futures by using history
             if n_length > 1:
@@ -1750,7 +1751,7 @@ class Prophet(object):
                 raise NotImplementedError
             # handle past included in dataframe
             if df["t"].min() <= 1:
-                past_uncertainty = np.zeros((n_samples, np.sum(df["t"] <= 1)))
+                past_uncertainty = np.zeros((n_samples, (df["t"] <= 1).sum()))
                 uncertainties = np.concatenate([past_uncertainty, uncertainties], axis=1)
         return uncertainties
 
