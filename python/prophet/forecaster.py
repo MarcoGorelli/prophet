@@ -1739,8 +1739,8 @@ class Prophet(object):
                     deltas=deltas,
                     k=k,
                     m=m,
-                    cap=future_df["cap_scaled"].values,
-                    t_time=future_df["t"].values,
+                    cap=future_df["cap_scaled"].to_numpy(),
+                    t_time=future_df["t"].to_numpy(),
                     n_length=n_length,
                     single_diff=single_diff,
                 )
