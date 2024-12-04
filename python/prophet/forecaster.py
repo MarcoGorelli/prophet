@@ -1316,13 +1316,13 @@ class Prophet(object):
             raise Exception('Model has not been fit.')
 
         if df is None:
-            df = self.history.copy()
+            df = nw.from_native(self.history.copy())
         else:
             if df.shape[0] == 0:
                 raise ValueError('Dataframe has no rows.')
-            df = self.setup_dataframe(df.copy())
+            df = nw.from_native(self.setup_dataframe(df))
 
-        df['trend'] = self.predict_trend(df)
+        df = df.with_columns(trend = self.predict_trend(df)).to_native()
         seasonal_components = self.predict_seasonal_components(df)
         if self.uncertainty_samples:
             intervals = self.predict_uncertainty(df, vectorized)
@@ -1682,10 +1682,10 @@ class Prophet(object):
         m = self.params["m"][iteration]
         k = self.params["k"][iteration]
         if self.growth == "linear":
-            expected = self.piecewise_linear(df["t"].values, deltas, k, m, self.changepoints_t)
+            expected = self.piecewise_linear(df["t"].to_numpy(), deltas, k, m, self.changepoints_t)
         elif self.growth == "logistic":
             expected = self.piecewise_logistic(
-                df["t"].values, df["cap_scaled"].values, deltas, k, m, self.changepoints_t
+                df["t"].values, df["cap_scaled"].to_numpy(), deltas, k, m, self.changepoints_t
             )
         elif self.growth == "flat":
             expected = self.flat_trend(df["t"].values, m)
