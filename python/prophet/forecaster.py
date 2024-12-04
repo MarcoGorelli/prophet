@@ -471,7 +471,7 @@ class Prophet(object):
                 )
             else:
                 # set empty changepoints
-                self.changepoints = nw.new_series(name='ds', values=[], dtype=nw.Datetime, native_namespace=nw.get_native_namespace(history)).to_native()
+                self.changepoints = nw.new_series(name='ds', values=[], dtype=nw.Datetime, native_namespace=nw.get_native_namespace(self.history)).to_native()
         if len(self.changepoints) > 0:
             self.changepoints_t = (
                 (nw.from_native(self.changepoints, series_only=True) - self.start).dt.total_nanoseconds()/self.t_scale.total_seconds()
@@ -634,7 +634,7 @@ class Prophet(object):
                     expanded_holidays[key][loc] = 1.
                 else:
                     expanded_holidays[key]  # Access key to generate value
-        holiday_features = nw.from_dict(expanded_holidays, native_namespace=pd)
+        holiday_features = nw.from_dict(expanded_holidays, native_namespace=nw.get_native_namespace(holidays))
         # Make sure column order is consistent
         holiday_features = holiday_features.select(sorted(holiday_features.columns))
         prior_scale_list = [
@@ -644,7 +644,7 @@ class Prophet(object):
         holiday_names = list(prior_scales.keys())
         # Store holiday names used in fit
         if self.train_holiday_names is None:
-            self.train_holiday_names = nw.new_series(name='', values=holiday_names, native_namespace=pd).to_native()
+            self.train_holiday_names = nw.new_series(name='', values=holiday_names, native_namespace=nw.get_native_namespace(holidays)).to_native()
         return holiday_features, prior_scale_list, holiday_names
 
     def add_regressor(self, name, prior_scale=None, standardize='auto',
@@ -863,7 +863,7 @@ class Prophet(object):
 
         # Dummy to prevent empty X
         if len(seasonal_features) == 0:
-            seasonal_features.append(nw.from_dict({'zeros': np.zeros(df.shape[0])}, native_namespace=pd))
+            seasonal_features.append(nw.from_dict({'zeros': np.zeros(df.shape[0])}, native_namespace=nw.get_native_namespace(self.history)))
             prior_scales.append(1.)
 
         seasonal_features = nw.concat(seasonal_features, how='horizontal')
@@ -897,7 +897,7 @@ class Prophet(object):
             'component': [
                 x.split('_delim_')[0] for x in seasonal_features.columns
             ],
-        }, native_namespace=pd)
+        }, native_namespace=nw.get_native_namespace(self.history))
         # Add total for holidays
         if self.train_holiday_names is not None:
             components = self.add_group_component(
@@ -1503,7 +1503,7 @@ class Prophet(object):
             series['{}_upper'.format(key)] = self.percentile(
                 sim_values[key], upper_p, axis=1)
 
-        return nw.from_dict(series, native_namespace=pd)
+        return nw.from_dict(series, native_namespace=nw.get_native_namespace(self.history))
 
     def sample_posterior_predictive(self, df: pd.DataFrame, vectorized: bool) -> Dict[str, np.ndarray]:
         """Prophet posterior predictive samples.
@@ -1916,7 +1916,7 @@ class Prophet(object):
         if include_history:
             dates = np.concatenate((np.array(self.history_dates), dates))
 
-        return nw.from_dict({'ds': dates}, native_namespace=pd).to_native()
+        return nw.from_dict({'ds': dates}, native_namespace=nw.get_native_namespace(self.history)).to_native()
 
     def plot(self, fcst, ax=None, uncertainty=True, plot_cap=True,
              xlabel='ds', ylabel='y', figsize=(10, 6), include_legend=False):
